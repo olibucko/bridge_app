@@ -204,8 +204,10 @@ class SolverResult:
         return min(y_disps)
 
     def centre_deflection(self):
-        """Deflection at load nodes (4 and 16)."""
-        return self.U[_dofs(4)[1]], self.U[_dofs(16)[1]]
+        """Deflection at load nodes (5 and 21)."""
+        from bridge.geometry import LOAD_NODES
+        n_left, n_right = LOAD_NODES
+        return self.U[_dofs(n_left)[1]], self.U[_dofs(n_right)[1]]
 
     def member_status(self):
         """Return sorted list of member data dicts, most critical first.
@@ -265,7 +267,7 @@ def solve(nodes: dict, members: list, E: float = DEFAULT_E,
     E        : Young's modulus (N/mm²)
     sections : {group_name: SectionDef} — per-group cross-sections.
                If None, all members use DEFAULT_SECTION.
-    load_N   : Total central point load (N), split equally across nodes 4 & 16
+    load_N   : Total central point load (N), split equally across centre load nodes
     """
     if sections is None:
         sections = {}
@@ -302,9 +304,10 @@ def solve(nodes: dict, members: list, E: float = DEFAULT_E,
     lengths = np.array(lengths)
 
     # Boundary conditions
-    # Pin (fixed) at all four support nodes: 1, 7, 13, 19 → fix X, Y, Z
+    # Pin (fixed) at all four support nodes → fix X, Y, Z
+    from bridge.geometry import SUPPORT_NODES, LOAD_NODES
     fixed = []
-    for n in [1, 7, 13, 19]:
+    for n in SUPPORT_NODES:
         fixed += _dofs(n)
     fixed = sorted(set(fixed))
     free  = [i for i in range(n_dof) if i not in fixed]
@@ -312,8 +315,9 @@ def solve(nodes: dict, members: list, E: float = DEFAULT_E,
     # Load vector
     F = np.zeros(n_dof)
     half = load_N / 2.0
-    F[_dofs(4)[1]]  = -half
-    F[_dofs(16)[1]] = -half
+    n_left, n_right = LOAD_NODES
+    F[_dofs(n_left)[1]]  = -half
+    F[_dofs(n_right)[1]] = -half
 
     # Solve
     K_ff = K[np.ix_(free, free)]

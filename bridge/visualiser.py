@@ -19,7 +19,7 @@ from matplotlib.widgets import Button
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 from bridge.solver import SolverResult, BALSA_TENSILE, BALSA_COMPRESSIVE
-from bridge.geometry import GROUP_COLORS, GROUP_LABELS
+from bridge.geometry import GROUP_COLORS, GROUP_LABELS, SUPPORT_NODES, LOAD_NODES
 from bridge.budget import compute_budget
 
 # ── High-quality rendering defaults ──────────────────────────────────
@@ -612,7 +612,7 @@ class BridgeVisualiser:
 
     def _draw_supports_2d(self, ax, z_filter, coord='xy'):
         """Draw fixed support markers."""
-        for n in [1, 7, 13, 19]:
+        for n in SUPPORT_NODES:
             nx, ny, nz = self.nodes[n]
             if abs(nz - z_filter) > 0.1:
                 continue
@@ -632,7 +632,7 @@ class BridgeVisualiser:
 
     def _draw_loads_2d(self, ax, z_filter):
         half = self.result.load_N / 2.0
-        for n in [4, 16]:
+        for n in LOAD_NODES:
             nx, ny, nz = self.nodes[n]
             if abs(nz - z_filter) > 0.1:
                 continue
@@ -664,12 +664,12 @@ class BridgeVisualiser:
             ax.scatter(x,z,y, color=NODE_FILL, s=55, zorder=5,
                        edgecolors=NODE_EDGE, linewidths=1.2)
 
-        for n in [1, 7, 13, 19]:
+        for n in SUPPORT_NODES:
             x,y,z = self.nodes[n]
             ax.scatter(x,z,y, color=SUPPORT_C, s=160, marker='^',
                        zorder=7, edgecolors='#000000', linewidths=1.0)
 
-        for n in [4, 16]:
+        for n in LOAD_NODES:
             x,y,z = self.nodes[n]
             ax.quiver(x,z,y+40, 0,0,-35, color=COMPRESS_C,
                       linewidth=2.5, arrow_length_ratio=0.3)
@@ -712,7 +712,7 @@ class BridgeVisualiser:
 
     def _draw_2d_side(self, ax, z_filter, title):
         ax.set_facecolor(BG)
-        groups = {"bottom","top","endpost","vertical","diagonal"}
+        groups = {"bottom","top","endpost","vertical","diagonal","midtie"}
         visible = []
         side = 1
 
