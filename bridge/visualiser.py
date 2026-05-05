@@ -712,7 +712,7 @@ class BridgeVisualiser:
 
     def _draw_2d_side(self, ax, z_filter, title):
         ax.set_facecolor(BG)
-        groups = {"bottom","top","endpost","vertical","diagonal","midtie"}
+        groups = {"bottom","top","endpost","vertical","diagonal"}
         visible = []
         side = 1
 

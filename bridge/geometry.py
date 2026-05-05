@@ -2,8 +2,8 @@
 geometry.py
 -----------
 Defines the Howe Truss bridge geometry:
-  - 44 nodes across two side trusses + floor + top bracing + diagonal midpoints
-  - 121 members grouped by structural role
+  - 32 nodes across two side trusses + floor + top bracing
+  - Members grouped by structural role
   - 600mm span | 50mm wide | 100mm tall | 6 interior cells
 
 Coordinate system:
@@ -38,12 +38,10 @@ X = [
 SUPPORT_NODES = [1, 9, 17, 25]     # four ground-pin corners
 LOAD_NODES    = [5, 21]            # centre bottom chord, both sides
 
-# ── Diagonal definitions (sorted by midpoint X within each side) ────
-# Each entry: (bottom_node, top_node)
+# ── Diagonal definitions ────────────────────────────────────────────
+# Each entry: (bottom_node, top_node) — full-length diagonals
 _LEFT_DIAGS  = [(2,11), (3,12), (4,13), (6,13), (7,14), (8,15)]
 _RIGHT_DIAGS = [(18,27), (19,28), (20,29), (22,29), (23,30), (24,31)]
-_LEFT_MID_START  = 33   # midpoint nodes 33-38
-_RIGHT_MID_START = 39   # midpoint nodes 39-44
 
 
 def build_nodes(width=WIDTH):
@@ -53,8 +51,6 @@ def build_nodes(width=WIDTH):
     Nodes 10-16 : left side top chord     Z=0
     Nodes 17-25 : right side bottom chord Z=width
     Nodes 26-32 : right side top chord    Z=width
-    Nodes 33-38 : left side diagonal midpoints  Z=0
-    Nodes 39-44 : right side diagonal midpoints Z=width
     """
     n = {}
     # Left bottom chord
@@ -70,16 +66,6 @@ def build_nodes(width=WIDTH):
     for i, x in enumerate(X[1:-1], start=26):
         n[i] = (x, HEIGHT, width)
 
-    # Diagonal midpoint nodes
-    for i, (bot, top) in enumerate(_LEFT_DIAGS):
-        bx, by, bz = n[bot]
-        tx, ty, tz = n[top]
-        n[_LEFT_MID_START + i] = ((bx+tx)/2, (by+ty)/2, (bz+tz)/2)
-    for i, (bot, top) in enumerate(_RIGHT_DIAGS):
-        bx, by, bz = n[bot]
-        tx, ty, tz = n[top]
-        n[_RIGHT_MID_START + i] = ((bx+tx)/2, (by+ty)/2, (bz+tz)/2)
-
     return n
 
 
@@ -91,8 +77,7 @@ def build_members():
       top       — top chord
       endpost   — inclined posts at each end
       vertical  — Howe verticals (compression members)
-      diagonal  — Howe half-diagonals (split at midpoint)
-      midtie    — horizontal ties connecting diagonal midpoints
+      diagonal  — Howe diagonals (full length, bottom → top)
       floor     — floor cross members
       floordiag — floor diagonal bracing
       topbrace  — top lateral cross + diagonal members
@@ -112,14 +97,9 @@ def build_members():
     # Verticals (bottom → top, same X position)
     for bot, top in [(2,10),(3,11),(4,12),(5,13),(6,14),(7,15),(8,16)]:
         m.append((bot, top, "vertical"))
-    # Half-diagonals (each original diagonal split at midpoint node)
-    for i, (bot, top) in enumerate(_LEFT_DIAGS):
-        mid = _LEFT_MID_START + i
-        m.append((bot, mid, "diagonal"))
-        m.append((mid, top, "diagonal"))
-    # Midpoint ties (connect adjacent midpoints, sorted by X)
-    for i in range(len(_LEFT_DIAGS) - 1):
-        m.append((_LEFT_MID_START + i, _LEFT_MID_START + i + 1, "midtie"))
+    # Diagonals (full length, bottom → top)
+    for bot, top in _LEFT_DIAGS:
+        m.append((bot, top, "diagonal"))
 
     # ── RIGHT SIDE TRUSS (mirror, nodes +16) ─────────────────────────
     for i in range(17, 25):
@@ -130,22 +110,9 @@ def build_members():
     m.append((25, 32, "endpost"))
     for bot, top in [(18,26),(19,27),(20,28),(21,29),(22,30),(23,31),(24,32)]:
         m.append((bot, top, "vertical"))
-    # Half-diagonals
-    for i, (bot, top) in enumerate(_RIGHT_DIAGS):
-        mid = _RIGHT_MID_START + i
-        m.append((bot, mid, "diagonal"))
-        m.append((mid, top, "diagonal"))
-    # Midpoint ties
-    for i in range(len(_RIGHT_DIAGS) - 1):
-        m.append((_RIGHT_MID_START + i, _RIGHT_MID_START + i + 1, "midtie"))
-
-    # ── MID-HEIGHT LATERAL BRACING (connect left ↔ right midpoints) ─
-    # Cross members (straight across)
-    for i in range(len(_LEFT_DIAGS)):
-        m.append((_LEFT_MID_START + i, _RIGHT_MID_START + i, "midtie"))
-    # Diagonal bracing (prevents Z-mechanism)
-    for i in range(len(_LEFT_DIAGS) - 1):
-        m.append((_LEFT_MID_START + i, _RIGHT_MID_START + i + 1, "midtie"))
+    # Diagonals (full length)
+    for bot, top in _RIGHT_DIAGS:
+        m.append((bot, top, "diagonal"))
 
     # ── FLOOR TRUSS ──────────────────────────────────────────────────
     # Cross members (straight across at each X station)
@@ -165,12 +132,12 @@ def build_members():
         m.append((a, b, "floordiag"))
 
     # ── TOP LATERAL BRACING ──────────────────────────────────────────
-    # Cross members
+    # Cross members at each top-chord station
     left_top  = list(range(10, 17))
     right_top = list(range(26, 33))
     for l, r in zip(left_top, right_top):
         m.append((l, r, "topbrace"))
-    # Diagonal bracing
+    # Diagonal bracing in the top XZ plane (provides lateral stability)
     for l, r in zip(left_top, right_top[1:]):
         m.append((l, r, "topbrace"))
 
@@ -184,7 +151,6 @@ GROUP_COLORS = {
     "endpost":     "#ffb74d",   # amber
     "vertical":    "#81c784",   # green
     "diagonal":    "#e57373",   # red
-    "midtie":      "#ef5350",   # darker red — same family as diagonal
     "floor":       "#4dd0e1",   # cyan
     "floorcentre": "#00e5ff",   # bright cyan — centre load beam
     "floordiag":   "#f06292",   # pink
@@ -197,7 +163,6 @@ GROUP_LABELS = {
     "endpost":     "End Post",
     "vertical":    "Vertical",
     "diagonal":    "Diagonal",
-    "midtie":      "Mid Tie",
     "floor":       "Floor Cross",
     "floorcentre": "Centre Beam",
     "floordiag":   "Floor Diagonal",
