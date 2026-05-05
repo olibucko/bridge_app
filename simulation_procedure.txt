@@ -1,0 +1,77 @@
+SIMULATION PROCEDURE
+====================
+
+The software runs a single static load case and evaluates three independent
+failure modes per member, then linearly extrapolates to find the predicted
+failure load.
+
+
+1. LOAD CASE
+------------
+  Applied load        : 98.1 N total (= 10 kg x 9.81)
+  Application points  : Nodes 5 and 21 (centre of bottom chord, both sides),
+                        49 N each, vertical
+  Direction           : -Y only (no live, dynamic, lateral, or eccentric
+                        loads)
+  Supports            : Nodes 1, 9, 17, 25 — fully pinned in X, Y, Z
+                        (over-restrained, statically indeterminate)
+
+
+2. ANALYSIS METHOD  (bridge/solver.py)
+--------------------------------------
+  - 3D direct stiffness method, pin-jointed bar elements (axial only,
+    no moment transfer)
+  - 3 DOF per node (Ux, Uy, Uz)
+  - Linear elastic, small displacement — geometry does not update with
+    deflection
+  - Solve K_ff · U = F for free DOFs; back-substitute for member axial
+    forces and reactions
+
+
+3. FAILURE CHECKS  (per member, per analysis)
+---------------------------------------------
+  For each of the 88 members, the solver computes three safety factors:
+
+    Check                  Formula                      Allowable
+    ---------------------  ---------------------------  ------------------
+    Tension                stress vs tensile strength   20 N/mm^2  (balsa)
+    Compression (crush)    |stress| vs comp. strength   12 N/mm^2  (balsa)
+    Euler buckling         P_cr = pi^2 * E * I_min / L^2   (compression
+                                                            members only)
+
+  I_min uses the weak axis of the rectangular section (no end-fixity
+  factor, K = 1 — conservative pin-pin case).
+
+
+4. PREDICTED FAILURE LOAD
+-------------------------
+  Forces scale linearly with applied load, so:
+
+    failure_load_N  =  applied_load x min(SF over all members, all modes)
+    failure_mode    =  whichever mode produced that minimum
+    critical member =  the member at the minimum
+
+  For the current design: 202 N predicted failure, governed by buckling
+  of diagonal 3-12 (SF = 2.06x).
+
+
+5. SCORE
+--------
+    score = failure_load_N / bridge_weight_grams
+
+  Bridge weight = sum of per-member volume x balsa density (160 kg/m^3)
+                  plus glue allowance (0.3 g per joint).
+
+
+WHAT THE SIMULATION DOES NOT TEST
+---------------------------------
+  - Dynamic or impact loading
+  - Lateral wind or eccentric loading
+  - Joint failure (assumes joints are stronger than members)
+  - Out-of-plane buckling beyond what weak-axis I captures
+  - Non-linear (large-deflection / post-buckling) behaviour
+  - Construction tolerances or material variability
+
+The simulation is a single deterministic test case with three failure-mode
+screens — failure is whichever member, in whichever mode, runs out of
+capacity first as load is scaled up.
